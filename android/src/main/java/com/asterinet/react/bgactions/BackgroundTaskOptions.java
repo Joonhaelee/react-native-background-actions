@@ -14,6 +14,10 @@ import com.facebook.react.bridge.ReadableMap;
 
 public final class BackgroundTaskOptions {
     private final Bundle extras;
+    // patch begin by jhlee
+    private static final long[] VIBRATE_DEF = new long[] {100L, 1000L, 200L, 1000L, 200L, 1000L};
+    private final List<Long> vibrate = VIBRATE_DEF;
+    // patch end    
 
     public BackgroundTaskOptions(@NonNull final Bundle extras) {
         this.extras = extras;
@@ -68,6 +72,30 @@ public final class BackgroundTaskOptions {
         } catch (Exception e) {
             extras.putInt("color", Color.parseColor("#ffffff"));
         }
+        // Get VIBRATE
+        try {
+            String vibrate = options.getString("vibrate");
+            if (vibrate != null) {
+                String[] values = vibrate.split(",");
+                if (values.length > 0) {
+                    this.vibrate = new ArrayList<Long>();
+                    for (String v : values) {
+                        this.vibrate.add(Long.parseLong(v));
+                    }
+                }
+                // 빈 값이 오면 진동 없음  
+                else {
+                    this.vibrate = null;
+                }
+            }
+            // 지정하지 않으면 기본 진동 사용
+            else {
+                this.vibrate = VIBRATE_DEF;
+            }
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Task vibrate values illegal");
+        }
+        
     }
 
     public Bundle getExtras() {
@@ -100,5 +128,9 @@ public final class BackgroundTaskOptions {
     @Nullable
     public Bundle getProgressBar() {
         return extras.getBundle("progressBar");
+    }
+    @Nullable
+    public List<Long> getVibrate() {
+        return vibrate;
     }
 }

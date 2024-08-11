@@ -1,11 +1,21 @@
+## fork 
+- from: (#fork-from-original-react-native-background-actions)
+- fixes:
+  - add vibration
+
+
 <p align="center">
   <img src="https://i.imgur.com/G8BUzdZ.png" />
 </p>
 
 ## Install
-- [Getting started](#getting-started)
-- [Compatibility](#react-native-compatibility)
-- [Linking](#linking)
+- [fork](#fork)
+- [Install](#install)
+  - [Getting started](#getting-started)
+  - [React Native Compatibility](#react-native-compatibility)
+  - [Linking](#linking)
+    - [Using React Native \>= 0.60](#using-react-native--060)
+    - [Using React Native \< 0.60](#using-react-native--060-1)
 
 ### Getting started
 Install the library using either Yarn:

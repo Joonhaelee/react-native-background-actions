@@ -18,15 +18,24 @@ import androidx.core.app.NotificationCompat;
 import com.facebook.react.HeadlessJsTaskService;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.jstasks.HeadlessJsTaskConfig;
+// patch begin by jhlee
+import android.media.RingtoneManager;
+import android.util.Log;
+// patch end
 
 final public class RNBackgroundActionsTask extends HeadlessJsTaskService {
 
     public static final int SERVICE_NOTIFICATION_ID = 92901;
     private static final String CHANNEL_ID = "RN_BACKGROUND_ACTIONS_CHANNEL";
+    // patch begin by jhlee
+    private static final long[] VIBRATE_PATTERN =
+            new long[] {100L, 1000L, 200L, 1000L, 200L, 1000L};
+    // patch end
 
     @SuppressLint("UnspecifiedImmutableFlag")
     @NonNull
-    public static Notification buildNotification(@NonNull Context context, @NonNull final BackgroundTaskOptions bgOptions) {
+    public static Notification buildNotification(@NonNull Context context,
+            @NonNull final BackgroundTaskOptions bgOptions) {
         // Get info
         final String taskTitle = bgOptions.getTaskTitle();
         final String taskDesc = bgOptions.getTaskDesc();
@@ -37,27 +46,85 @@ final public class RNBackgroundActionsTask extends HeadlessJsTaskService {
         if (linkingURI != null) {
             notificationIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(linkingURI));
         } else {
-            //as RN works on single activity architecture - we don't need to find current activity on behalf of react context
-            notificationIntent = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+            // as RN works on single activity architecture - we don't need to find current activity
+            // on behalf of react context
+
+            // blocked begin by jhlee.
+            // notificationIntent =
+            // new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+            // blocked end by jhlee
+
+            // patch block begin by jhlee.
+            String packageName = context.getPackageName();
+            Intent launchIntent =
+                    context.getPackageManager().getLaunchIntentForPackage(packageName);
+            String className = launchIntent.getComponent().getClassName();
+            try {
+                Class<?> activityClass = Class.forName(className);
+                notificationIntent = new Intent(context, activityClass);
+            } catch (Exception e) {
+                Log.e("BgAction", "Class not found", e);
+                notificationIntent =
+                        new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+            }
+            // patch block end
         }
+
         final PendingIntent contentIntent;
         if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            contentIntent = PendingIntent.getActivity(context,0, notificationIntent, PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT);
+            contentIntent = PendingIntent.getActivity(context, 0, notificationIntent,
+                    PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT);
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            contentIntent = PendingIntent.getActivity(context, 0, notificationIntent, PendingIntent.FLAG_MUTABLE);
+            contentIntent = PendingIntent.getActivity(context, 0, notificationIntent,
+                    PendingIntent.FLAG_MUTABLE);
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            contentIntent = PendingIntent.getActivity(context, 0, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            contentIntent = PendingIntent.getActivity(context, 0, notificationIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         } else {
-            contentIntent = PendingIntent.getActivity(context, 0, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+            contentIntent = PendingIntent.getActivity(context, 0, notificationIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT);
         }
-        final NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
-                .setContentTitle(taskTitle)
-                .setContentText(taskDesc)
-                .setSmallIcon(iconInt)
-                .setContentIntent(contentIntent)
-                .setOngoing(true)
-                .setPriority(NotificationCompat.PRIORITY_MIN)
-                .setColor(color);
+        /*
+         * --- blocked begin by jhlee.
+         * 
+         * final NotificationCompat.Builder builder = new NotificationCompat.Builder(context,
+         * CHANNEL_ID).setContentTitle(taskTitle) .setContentText(taskDesc).setSmallIcon(iconInt)
+         * .setContentIntent(contentIntent).setOngoing(true)
+         * .setPriority(NotificationCompat.PRIORITY_MIN).setColor(color);
+         * 
+         * --- blocked end by jhlee.
+         */
+        
+         
+        // patch block begin by jhlee
+        final NotificationCompat.Builder builder =
+                new NotificationCompat.Builder(context, CHANNEL_ID)
+                        // patch block begin by jhlee
+                        // .setContentTitle(taskTitle)
+                        // .setContentText(taskDesc)
+                        // .setSmallIcon(iconInt)
+                        // .setContentIntent(contentIntent)
+                        // .setOngoing(true)
+                        // .setPriority(NotificationCompat.PRIORITY_MIN)
+                        // .setColor(color);
+                        .setContentTitle(taskTitle)
+                        .setContentText(taskDesc)
+                        .setSmallIcon(iconInt)
+                        .setDefaults(NotificationCompat.DEFAULT_ALL)
+                        .setContentIntent(contentIntent)
+                        .setOngoing(true)
+                        .setColor(color)
+                        .setPriority(NotificationCompat.PRIORITY_HIGH)
+                        .setAutoCancel(true)
+                        .setFullScreenIntent(contentIntent, true) // 4;
+                        .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION));
+        if (bgOptions.getVibrate() != null) {
+            builder.setVibrate(bgOptions.getVibrate())
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            // builder.setCategory(NotificationCompat.CATEGORY_NAVIGATION);
+        }
+        // patch block end
 
         final Bundle progressBarBundle = bgOptions.getProgressBar();
         if (progressBarBundle != null) {
@@ -70,11 +137,11 @@ final public class RNBackgroundActionsTask extends HeadlessJsTaskService {
     }
 
     @Override
-    protected @Nullable
-    HeadlessJsTaskConfig getTaskConfig(Intent intent) {
+    protected @Nullable HeadlessJsTaskConfig getTaskConfig(Intent intent) {
         final Bundle extras = intent.getExtras();
         if (extras != null) {
-            return new HeadlessJsTaskConfig(extras.getString("taskName"), Arguments.fromBundle(extras), 0, true);
+            return new HeadlessJsTaskConfig(extras.getString("taskName"),
+                    Arguments.fromBundle(extras), 0, true);
         }
         return null;
     }
@@ -86,7 +153,10 @@ final public class RNBackgroundActionsTask extends HeadlessJsTaskService {
             throw new IllegalArgumentException("Extras cannot be null");
         }
         final BackgroundTaskOptions bgOptions = new BackgroundTaskOptions(extras);
-        createNotificationChannel(bgOptions.getTaskTitle(), bgOptions.getTaskDesc()); // Necessary creating channel for API 26+
+        createNotificationChannel(bgOptions.getTaskTitle(), bgOptions.getTaskDesc()); // Necessary
+                                                                                      // creating
+                                                                                      // channel for
+                                                                                      // API 26+
         // Create the notification
         final Notification notification = buildNotification(this, bgOptions);
 
@@ -94,12 +164,21 @@ final public class RNBackgroundActionsTask extends HeadlessJsTaskService {
         return super.onStartCommand(intent, flags, startId);
     }
 
-    private void createNotificationChannel(@NonNull final String taskTitle, @NonNull final String taskDesc) {
+    private void createNotificationChannel(@NonNull final String taskTitle,
+            @NonNull final String taskDesc) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            final int importance = NotificationManager.IMPORTANCE_LOW;
-            final NotificationChannel channel = new NotificationChannel(CHANNEL_ID, taskTitle, importance);
+            // patch block by jhlee. MUST BE high
+            // final int importance = NotificationManager.IMPORTANCE_LOW;
+            final int importance = NotificationManager.IMPORTANCE_HIGH;
+
+            // patch block end
+            final NotificationChannel channel =
+                    new NotificationChannel(CHANNEL_ID, taskTitle, importance);
             channel.setDescription(taskDesc);
-            final NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            // patch line by jhlee
+            channel.setVibrationPattern(VIBRATE_PATTERN);
+            final NotificationManager notificationManager =
+                    getSystemService(NotificationManager.class);
             notificationManager.createNotificationChannel(channel);
         }
     }
