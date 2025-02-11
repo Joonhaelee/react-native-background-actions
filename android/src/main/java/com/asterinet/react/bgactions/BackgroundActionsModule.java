@@ -4,6 +4,7 @@ import android.app.Notification;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 
@@ -47,8 +48,10 @@ public class BackgroundActionsModule extends ReactContextBaseJavaModule {
             currentServiceIntent.putExtras(bgOptions.getExtras());
             // Start the task
             reactContext.startService(currentServiceIntent);
+            Log. .e(TAG, "Fail to start service", e);
             promise.resolve(null);
         } catch (Exception e) {
+            Log.e(TAG, "Fail to start service", e);
             promise.reject(e);
         }
     }

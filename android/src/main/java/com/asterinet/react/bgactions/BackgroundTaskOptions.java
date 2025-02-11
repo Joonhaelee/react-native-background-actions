@@ -2,6 +2,7 @@ package com.asterinet.react.bgactions;
 
 import android.graphics.Color;
 import android.os.Bundle;
+import android.app.NotificationManager;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.IdRes;
@@ -38,6 +39,26 @@ public final class BackgroundTaskOptions {
         } catch (Exception e) {
             throw new IllegalArgumentException("Task description cannot be null");
         }
+        // importance
+        try {
+            String v = extras.getString("importance", "");
+            int importance = NotificationManager.IMPORTANCE_DEFAULT;
+            if (v.equals("high")) {
+                return NotificationManager.IMPORTANCE_HIGH;
+            }
+            else if (v.equals("low")) {
+                return NotificationManager.IMPORTANCE_LOW;
+            }
+            else if (v.equals("min")) {
+                return NotificationManager.IMPORTANCE_MIN;
+            }
+            else if (v.equals("none")) {
+                return NotificationManager.IMPORTANCE_NONE;
+            }
+            extras.putInt("importance", importance);            
+        } catch (Exception e) {
+        }
+
         // Get iconInt
         try {
             final ReadableMap iconMap = options.getMap("taskIcon");
@@ -100,5 +121,38 @@ public final class BackgroundTaskOptions {
     @Nullable
     public Bundle getProgressBar() {
         return extras.getBundle("progressBar");
+    }
+
+    public boolean getShowBadge() {
+        return extras.getBoolean("showBadge");
+    }
+    public boolean getOngoing() {
+        return extras.getBoolean("ongoing");
+    }
+    public boolean getAutoCancel() {
+        return extras.getBoolean("autoCancel");
+    }
+    public int getImportance() {
+        return extras.getBoolean("importance");
+    }
+
+    @Nullable
+    // new long[] {100L, 1000L, 200L, 1000L, 200L, 1000L}; [idle, vibrate, ...]
+    public long[] getVibrate() {
+        String[] items = extras.getString("vibrates", "").split(",");
+        if (items.length > 0) {
+            long[] vibrates = new long[items.length];
+            for(int i = 0; i < items.length; i++) {
+                try {
+                    vibrates[i] = Integer.parseInt(items[i]);
+                } catch (NumberFormatException nfe) {
+                    return null;
+                }
+            }
+            return vibrates;
+        }
+        else {
+            return null;
+        }
     }
 }
