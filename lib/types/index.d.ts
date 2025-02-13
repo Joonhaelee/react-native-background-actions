@@ -77,9 +77,9 @@ declare class BackgroundServer extends EventEmitter<'expiration', any> {
      * @returns {Promise<void>}
      */
     start<T>(
-        task: (taskData?: T | undefined) => Promise<void>,
+        task: (taskData?: T) => Promise<void>,
         options: BackgroundTaskStartOptions & {
-            parameters?: T | undefined;
+            parameters?: T;
         }
     ): Promise<void>;
 
