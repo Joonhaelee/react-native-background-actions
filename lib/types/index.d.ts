@@ -1,5 +1,6 @@
 export default backgroundServer;
-export type BackgroundTaskOptions = {
+
+export type BackgroundTaskUpdateOptions = {
     taskName: string;
     taskTitle: string;
     taskDesc: string;
@@ -10,12 +11,21 @@ export type BackgroundTaskOptions = {
     };
     color?: string | undefined;
     linkingURI?: string | undefined;
-    progressBar?: {
-        max: number;
-        value: number;
-        indeterminate?: boolean | undefined;
-    } | undefined;
+    progressBar?:
+        | {
+              max: number;
+              value: number;
+              indeterminate?: boolean | undefined;
+          }
+        | undefined;
 };
+
+export type BackgroundTaskStartOptions = BackgroundTaskUpdateOptions & {
+    autoCancel?: boolean;
+    ongoing?: boolean;
+    vibrate?: string;
+};
+
 declare const backgroundServer: BackgroundServer;
 /**
  * @typedef {{taskName: string,
@@ -28,7 +38,7 @@ declare const backgroundServer: BackgroundServer;
  *            }} BackgroundTaskOptions
  * @extends EventEmitter<'expiration',any>
  */
-declare class BackgroundServer extends EventEmitter<"expiration", any> {
+declare class BackgroundServer extends EventEmitter<'expiration', any> {
     /** @private */
     private _runnedTasks;
     /** @private @type {(arg0?: any) => void} */
@@ -43,34 +53,14 @@ declare class BackgroundServer extends EventEmitter<"expiration", any> {
     private _addListeners;
     /**
      * **ANDROID ONLY**
-     *
      * Updates the task notification.
-     *
      * *On iOS this method will return immediately*
      *
-     * @param {{taskTitle?: string,
-     *          taskDesc?: string,
-     *          taskIcon?: {name: string, type: string, package?: string},
-     *          color?: string,
-     *          linkingURI?: string,
-     *          progressBar?: {max: number, value: number, indeterminate?: boolean}}} taskData
+     * @param {taskData: BackgroundTaskUpdateOptions}}
      */
-    updateNotification(taskData: {
-        taskTitle?: string;
-        taskDesc?: string;
-        taskIcon?: {
-            name: string;
-            type: string;
-            package?: string;
-        };
-        color?: string;
-        linkingURI?: string;
-        progressBar?: {
-            max: number;
-            value: number;
-            indeterminate?: boolean;
-        };
-    }): Promise<void>;
+
+    updateNotification(taskData: BackgroundTaskUpdateOptions): Promise<void>;
+
     /**
      * Returns if the current background task is running.
      *
@@ -83,28 +73,16 @@ declare class BackgroundServer extends EventEmitter<"expiration", any> {
      * @template T
      *
      * @param {(taskData?: T) => Promise<void>} task
-     * @param {BackgroundTaskOptions & {parameters?: T}} options
+     * @param {BackgroundTaskStartOptions & {parameters?: T}} options
      * @returns {Promise<void>}
      */
-    start<T>(task: (taskData?: T | undefined) => Promise<void>, options: {
-        taskName: string;
-        taskTitle: string;
-        taskDesc: string;
-        taskIcon: {
-            name: string;
-            type: string;
-            package?: string;
-        };
-        color?: string | undefined;
-        linkingURI?: string | undefined;
-        progressBar?: {
-            max: number;
-            value: number;
-            indeterminate?: boolean | undefined;
-        } | undefined;
-    } & {
-        parameters?: T | undefined;
-    }): Promise<void>;
+    start<T>(
+        task: (taskData?: T | undefined) => Promise<void>,
+        options: BackgroundTaskStartOptions & {
+            parameters?: T | undefined;
+        }
+    ): Promise<void>;
+
     /**
      * @private
      * @template T
@@ -124,4 +102,4 @@ declare class BackgroundServer extends EventEmitter<"expiration", any> {
      */
     stop(): Promise<void>;
 }
-import EventEmitter from "eventemitter3";
+import EventEmitter from 'eventemitter3';
