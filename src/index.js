@@ -10,18 +10,14 @@ import EventEmitter from 'eventemitter3';
  *            color?: string
  *            linkingURI?: string,
  *            progressBar?: {max: number, value: number, indeterminate?: boolean}
- *            }} BackgroundTaskUpdateOptions
- * @typedef {{taskName: string,
- *            taskTitle: string,
- *            taskDesc: string,
- *            taskIcon: {name: string, type: string, package?: string},
- *            color?: string
- *            linkingURI?: string,
- *            progressBar?: {max: number, value: number, indeterminate?: boolean}
  *            autoCancel?: boolean,
- *            ongoing?: boolean,
- *            vibrate?: string;
- *            }} BackgroundTaskStartOptions
+ *            ongoing: boolean,
+ *            }} BackgroundTaskOptions
+ * @typedef {{channelImportance?: 'high' | 'low' | 'min' | 'none' | 'default';
+ *            channelShowBadge?: boolean;
+ *            channelSound?: boolean;
+ *            channelVibrate?: string;
+ *            }} BackgroundTaskChannelOptions
  * @extends EventEmitter<'expiration',any>
  */
 class BackgroundServer extends EventEmitter {
@@ -33,8 +29,7 @@ class BackgroundServer extends EventEmitter {
         this._stopTask = () => {};
         /** @private */
         this._isRunning = false;
-        /** @private @type {BackgroundTaskStartOptions} */
-        /** @private @type {BackgroundTaskUpdateOptions} */
+        /** @private @type {BackgroundTaskOptions & BackgroundTaskChannelOptions} */
         this._currentOptions;
         this._addListeners();
     }
@@ -53,12 +48,12 @@ class BackgroundServer extends EventEmitter {
      *
      * *On iOS this method will return immediately*
      *
-     * @param {BackgroundTaskUpdateOptions} taskData
+     * @param {BackgroundTaskOptions} taskData
      */
     async updateNotification(taskData) {
         if (Platform.OS !== 'android') return;
         if (!this.isRunning()) throw new Error('A BackgroundAction must be running before updating the notification');
-        this._currentOptions = this._normalizeUpdateOptions({ ...this._currentOptions, ...taskData });
+        this._currentOptions = this._normalizeOptions({ ...this._currentOptions, ...taskData });
         await RNBackgroundActions.updateNotification(this._currentOptions);
     }
 
@@ -77,12 +72,12 @@ class BackgroundServer extends EventEmitter {
      * @template T
      *
      * @param {(taskData?: T) => Promise<void>} task
-     * @param {BackgroundTaskStartOptions & {parameters?: T}} options
+     * @param {BackgroundTaskOptions & BackgroundTaskChannelOptions & {parameters?: T}} options
      * @returns {Promise<void>}
      */
     async start(task, options) {
         this._runnedTasks++;
-        this._currentOptions = this._normalizeStartOptions(options);
+        this._currentOptions = this._normalizeOptions(options);
         const finalTask = this._generateTask(task, options.parameters);
         if (Platform.OS === 'android') {
             AppRegistry.registerHeadlessTask(this._currentOptions.taskName, () => finalTask);
@@ -113,25 +108,9 @@ class BackgroundServer extends EventEmitter {
 
     /**
      * @private
-     * @param {BackgroundTaskUpdateOptions} options
+     * @param {BackgroundTaskOptions & BackgroundTaskChannelOptions} options
      */
-    _normalizeUpdateOptions(options) {
-        return {
-            taskName: options.taskName + this._runnedTasks,
-            taskTitle: options.taskTitle,
-            taskDesc: options.taskDesc,
-            taskIcon: { ...options.taskIcon },
-            color: options.color || '#ffffff',
-            linkingURI: options.linkingURI,
-            progressBar: options.progressBar,
-        };
-    }
-
-    /**
-     * @private
-     * @param {BackgroundTaskStartOptions} options
-     */
-    _normalizeStartOptions(options) {
+    _normalizeOptions(options) {
         return {
             taskName: options.taskName + this._runnedTasks,
             taskTitle: options.taskTitle,
@@ -142,7 +121,11 @@ class BackgroundServer extends EventEmitter {
             progressBar: options.progressBar,
             autoCancel: options.autoCancel || false,
             ongoing: options.ongoing || false,
-            vibrate: options.vibrate,
+            // channel
+            channelImportance: options.channelImportance,
+            channelVibrate: options.channelVibrate,
+            channelShowBadge: options.channelShowBadge,
+            channelSound: options.channelSound,
         };
     }
 

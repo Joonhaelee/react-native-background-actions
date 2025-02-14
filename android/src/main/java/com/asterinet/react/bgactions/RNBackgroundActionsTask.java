@@ -7,6 +7,7 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.media.AudioAttributes;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
@@ -25,29 +26,43 @@ import android.util.Log;
 
 final public class RNBackgroundActionsTask extends HeadlessJsTaskService {
 
+    private static final String TAG = "RNBackgroundActions";
+
     public static final int SERVICE_NOTIFICATION_ID = 92901;
     private static final String CHANNEL_ID = "RN_BACKGROUND_ACTIONS_CHANNEL";
-    // patch-line by jhlee 2024.12.
-//    private static final long[] VIBRATE_PATTERN =
-//                        new long[] {100L, 1000L, 200L, 1000L, 200L, 1000L};
 
+    private static Class<?> getMainActivityClass(Context context) {
+        String packageName = context.getPackageName();
+        Intent launchIntent = context.getPackageManager().getLaunchIntentForPackage(packageName);
+        if (launchIntent == null || launchIntent.getComponent() == null) {
+            Log.e(TAG, "Failed to get launch intent or component");
+            return null;
+        }
+        try {
+            return Class.forName(launchIntent.getComponent().getClassName());
+        } catch (ClassNotFoundException e) {
+            Log.e(TAG, "Failed to get main activity class");
+            return null;
+        }
+    }
     @SuppressLint("UnspecifiedImmutableFlag")
     @NonNull
     public static Notification buildNotification(@NonNull Context context,
-            @NonNull final BackgroundTaskOptions bgOptions) {
+                                                 @NonNull final BackgroundTaskOptions bgOptions) {
         // Get info
-        final String taskTitle = bgOptions.getTaskTitle();
-        final String taskDesc = bgOptions.getTaskDesc();
-        final int iconInt = bgOptions.getIconInt();
-        final int color = bgOptions.getColor();
         final String linkingURI = bgOptions.getLinkingURI();
         Intent notificationIntent;
         if (linkingURI != null) {
             notificationIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(linkingURI));
         } else {
+            Class<?> mainActivityClass = getMainActivityClass(context);
+            if (mainActivityClass == null) {
+                throw new IllegalArgumentException("RN main activity class not found");
+            }
+            notificationIntent = new Intent(context, mainActivityClass);
             // as RN works on single activity architecture - we don't need to find current activity on behalf of react context
-            notificationIntent =
-                    new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+//            notificationIntent =
+//                    new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
         }
         final PendingIntent contentIntent;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -63,24 +78,15 @@ final public class RNBackgroundActionsTask extends HeadlessJsTaskService {
             contentIntent = PendingIntent.getActivity(context, 0, notificationIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT);
         }
-        /* patch begin by jhlee. 2024.12
-        final NotificationCompat.Builder builder =
-                new NotificationCompat.Builder(context, CHANNEL_ID)
-                        .setContentTitle(taskTitle)
-                        .setContentText(taskDesc)
-                        .setSmallIcon(iconInt)
-                        .setContentIntent(contentIntent)
-                        .setOngoing(true)
-                        .setPriority(NotificationCompat.PRIORITY_MIN)
-                        .setColor(color);
-        */
         final NotificationCompat.Builder builder =
                 new NotificationCompat.Builder(context, CHANNEL_ID)
                         // title & message & icon && color
-                        .setContentTitle(taskTitle)
-                        .setContentText(taskDesc)
-                        .setSmallIcon(iconInt)
-                        .setColor(color)
+                        .setContentTitle(bgOptions.getTaskTitle())
+                        .setContentText(bgOptions.getTaskDesc())
+                        .setSmallIcon(bgOptions.getIconInt())
+                        .setColor(bgOptions.getColor())
+                        // priority : android 7.1  이하에서만 적용
+//                        .setPriority(bgOptions.getPriority())
                         // use can not dismiss notification
                         .setOngoing(bgOptions.getOngoing())
                         // Make this notification automatically dismissed when the user touches it.
@@ -88,13 +94,10 @@ final public class RNBackgroundActionsTask extends HeadlessJsTaskService {
                         // Set the intent that fires when the user taps the notification.
                         .setContentIntent(contentIntent);
 //                        .setDefaults(NotificationCompat.DEFAULT_ALL)
-//                        .setFullScreenIntent(contentIntent, true) // 4;
-//                        .setVibrate(VIBRATE_PATTERN)
 //                        .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             builder.setCategory(NotificationCompat.CATEGORY_ALARM);
         }
-        // patch-end
 
         final Bundle progressBarBundle = bgOptions.getProgressBar();
         if (progressBarBundle != null) {
@@ -131,22 +134,40 @@ final public class RNBackgroundActionsTask extends HeadlessJsTaskService {
         return super.onStartCommand(intent, flags, startId);
     }
 
+    /* notification channel.
+       한번 생성되면 앱이 지워지지 않는 이상 계속 유지됨. 따라서, 처음 생성할 때 필요한 인자를 주어야 함.
+       importance, vibrate, sound, showBadge 는 채널에서 설정해야 합니다.
+    */
     private void createNotificationChannel(BackgroundTaskOptions bgOptions) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // create channel with title and importance
-            final NotificationChannel channel =
-                    new NotificationChannel(CHANNEL_ID, bgOptions.getTaskTitle(), bgOptions.getImportance());
-            channel.setDescription(bgOptions.getTaskDesc());
-            // vibrate pattern should be set here. can not change after channel created
-            long[] vibrates = bgOptions.getVibrate();
-            if (vibrates != null) {
-                channel.setVibrationPattern(vibrates);
+            final NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            if (notificationManager.getNotificationChannel(CHANNEL_ID) == null) {
+                // create channel with title and importance
+                final NotificationChannel channel =
+                        new NotificationChannel(CHANNEL_ID, bgOptions.getTaskTitle(), bgOptions.getChannelImportance());
+                channel.setDescription(bgOptions.getTaskDesc());
+                // vibrate pattern should be set here. can not change after channel created
+                long[] vibrates = bgOptions.getChannelVibrate();
+                if (vibrates != null) {
+                    channel.enableVibration(true);
+                    channel.setVibrationPattern(vibrates);
+                }
+                // sound
+                if (bgOptions.getChannelSound()) {
+                    Uri soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+                    AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                            .build();
+                    channel.setSound(soundUri, audioAttributes);
+                }
+                // show badge or not
+                channel.setShowBadge(bgOptions.getChannelShowBadge());;
+                notificationManager.createNotificationChannel(channel);
             }
-            // show badge or not
-            channel.setShowBadge(bgOptions.getShowBadge());;
-            final NotificationManager notificationManager =
-                    getSystemService(NotificationManager.class);
-            notificationManager.createNotificationChannel(channel);
+            else {
+                Log.d(TAG, "notification channel already created");
+            }
         }
     }
 }

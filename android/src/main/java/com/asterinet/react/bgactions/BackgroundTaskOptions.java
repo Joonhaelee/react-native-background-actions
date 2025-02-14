@@ -3,11 +3,13 @@ package com.asterinet.react.bgactions;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.app.NotificationManager;
+import android.util.Log;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.IdRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.app.NotificationCompat;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReactContext;
@@ -39,26 +41,6 @@ public final class BackgroundTaskOptions {
         } catch (Exception e) {
             throw new IllegalArgumentException("Task description cannot be null");
         }
-        // importance
-        try {
-            String v = extras.getString("importance", "");
-            int importance = NotificationManager.IMPORTANCE_DEFAULT;
-            if (v.equals("high")) {
-                return NotificationManager.IMPORTANCE_HIGH;
-            }
-            else if (v.equals("low")) {
-                return NotificationManager.IMPORTANCE_LOW;
-            }
-            else if (v.equals("min")) {
-                return NotificationManager.IMPORTANCE_MIN;
-            }
-            else if (v.equals("none")) {
-                return NotificationManager.IMPORTANCE_NONE;
-            }
-            extras.putInt("importance", importance);            
-        } catch (Exception e) {
-        }
-
         // Get iconInt
         try {
             final ReadableMap iconMap = options.getMap("taskIcon");
@@ -88,6 +70,53 @@ public final class BackgroundTaskOptions {
             extras.putInt("color", Color.parseColor(color));
         } catch (Exception e) {
             extras.putInt("color", Color.parseColor("#ffffff"));
+        }
+        // ongoing
+        extras.putBoolean("ongoing", options.hasKey("ongoing") && options.getBoolean("ongoing"));
+        // autoCancel
+        extras.putBoolean("autoCancel", options.hasKey("autoCancel") && options.getBoolean("autoCancel"));
+        // channel importance
+        int importance = NotificationManager.IMPORTANCE_DEFAULT;
+        if (options.hasKey("channelImportance")) {
+            final String imp = options.getString("channelImportance");
+            if (imp != null) {
+                importance = switch (imp.toLowerCase()) {
+                    case "high" -> NotificationManager.IMPORTANCE_HIGH;
+                    case "low" -> NotificationManager.IMPORTANCE_LOW;
+                    case "min" -> NotificationManager.IMPORTANCE_MIN;
+                    case "none" -> NotificationManager.IMPORTANCE_NONE;
+                    default -> NotificationManager.IMPORTANCE_DEFAULT;
+                };
+            }
+        }
+        extras.putInt("channelImportance", importance);
+        // channel sound
+        extras.putBoolean("channelSound", options.hasKey("channelSound") && options.getBoolean("channelSound"));
+        // channel showBadge
+        extras.putBoolean("channelShowBadge", options.hasKey("channelShowBadge") && options.getBoolean("channelShowBadge"));
+        // channel vibrate
+        try {
+            if (options.hasKey("channelVibrate")) {
+                String vib = options.getString("channelVibrate");
+                if (vib != null) {
+                    String[] items = vib.split(",");
+                    if (items.length > 0) {
+                        long[] vibrates = new long[items.length];
+                        for (int i = 0; i < items.length; i++) {
+                            try {
+                                vibrates[i] = Integer.parseInt(items[i]);
+                                Log.d("RNBackgroundActions", String.format("option.vibrate=%d", Integer.parseInt(items[i])));
+                            } catch (NumberFormatException nfe) {
+                                break;
+                            }
+                        }
+                        extras.putLongArray("channelVibrate", vibrates);
+                    }
+                }
+            }
+        }
+        catch (Exception e) {
+            throw new IllegalArgumentException("Task channelVibrate invalid");
         }
     }
 
@@ -122,37 +151,25 @@ public final class BackgroundTaskOptions {
     public Bundle getProgressBar() {
         return extras.getBundle("progressBar");
     }
-
-    public boolean getShowBadge() {
-        return extras.getBoolean("showBadge");
-    }
     public boolean getOngoing() {
         return extras.getBoolean("ongoing");
     }
     public boolean getAutoCancel() {
         return extras.getBoolean("autoCancel");
     }
-    public int getImportance() {
-        return extras.getBoolean("importance");
+    // importance, showBadge, vibrate for channel !
+    public int getChannelImportance() {
+        return extras.getInt("channelImportance");
     }
-
+    public boolean getChannelSound() {
+        return extras.getBoolean("channelSound");
+    }
+    public boolean getChannelShowBadge() {
+        return extras.getBoolean("channelShowBadge");
+    }
     @Nullable
     // new long[] {100L, 1000L, 200L, 1000L, 200L, 1000L}; [idle, vibrate, ...]
-    public long[] getVibrate() {
-        String[] items = extras.getString("vibrates", "").split(",");
-        if (items.length > 0) {
-            long[] vibrates = new long[items.length];
-            for(int i = 0; i < items.length; i++) {
-                try {
-                    vibrates[i] = Integer.parseInt(items[i]);
-                } catch (NumberFormatException nfe) {
-                    return null;
-                }
-            }
-            return vibrates;
-        }
-        else {
-            return null;
-        }
+    public long[] getChannelVibrate() {
+        return extras.getLongArray("channelVibrate");
     }
 }

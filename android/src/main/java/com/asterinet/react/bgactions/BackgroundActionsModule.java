@@ -48,7 +48,7 @@ public class BackgroundActionsModule extends ReactContextBaseJavaModule {
             currentServiceIntent.putExtras(bgOptions.getExtras());
             // Start the task
             reactContext.startService(currentServiceIntent);
-            Log. .e(TAG, "Fail to start service", e);
+            Log.d(TAG, "service started");
             promise.resolve(null);
         } catch (Exception e) {
             Log.e(TAG, "Fail to start service", e);

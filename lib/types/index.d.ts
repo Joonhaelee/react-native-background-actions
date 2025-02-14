@@ -1,6 +1,6 @@
 export default backgroundServer;
 
-export type BackgroundTaskUpdateOptions = {
+export type BackgroundTaskOptions = {
     taskName: string;
     taskTitle: string;
     taskDesc: string;
@@ -9,21 +9,22 @@ export type BackgroundTaskUpdateOptions = {
         type: string;
         package?: string;
     };
-    color?: string | undefined;
-    linkingURI?: string | undefined;
-    progressBar?:
-        | {
-              max: number;
-              value: number;
-              indeterminate?: boolean | undefined;
-          }
-        | undefined;
-};
-
-export type BackgroundTaskStartOptions = BackgroundTaskUpdateOptions & {
+    color?: string;
+    linkingURI?: string;
+    progressBar?: {
+        max: number;
+        value: number;
+        indeterminate?: boolean | undefined;
+    };
     autoCancel?: boolean;
     ongoing?: boolean;
-    vibrate?: string;
+};
+
+export type BackgroundTaskChannelOptions = {
+    channelImportance?: 'high' | 'low' | 'min' | 'none' | 'default';
+    channelSound?: boolean;
+    channelShowBadge?: boolean;
+    channelVibrate?: string;
 };
 
 declare const backgroundServer: BackgroundServer;
@@ -35,6 +36,8 @@ declare const backgroundServer: BackgroundServer;
  *            color?: string
  *            linkingURI?: string,
  *            progressBar?: {max: number, value: number, indeterminate?: boolean}
+ *            autoCancel?: boolean,
+ *            ongoing?: boolean,
  *            }} BackgroundTaskOptions
  * @extends EventEmitter<'expiration',any>
  */
@@ -45,7 +48,7 @@ declare class BackgroundServer extends EventEmitter<'expiration', any> {
     private _stopTask;
     /** @private */
     private _isRunning;
-    /** @private @type {BackgroundTaskOptions} */
+    /** @private @type {BackgroundTaskOptions & BackgroundTaskChannelOptions} */
     private _currentOptions;
     /**
      * @private
@@ -56,10 +59,10 @@ declare class BackgroundServer extends EventEmitter<'expiration', any> {
      * Updates the task notification.
      * *On iOS this method will return immediately*
      *
-     * @param {taskData: BackgroundTaskUpdateOptions}}
+     * @param {taskData: BackgroundTaskOptions}}
      */
 
-    updateNotification(taskData: BackgroundTaskUpdateOptions): Promise<void>;
+    updateNotification(taskData: BackgroundTaskOptions): Promise<void>;
 
     /**
      * Returns if the current background task is running.
@@ -73,14 +76,15 @@ declare class BackgroundServer extends EventEmitter<'expiration', any> {
      * @template T
      *
      * @param {(taskData?: T) => Promise<void>} task
-     * @param {BackgroundTaskStartOptions & {parameters?: T}} options
+     * @param { BackgroundTaskOptions & BackgroundTaskChannelOptions & {parameters?: T}} options
      * @returns {Promise<void>}
      */
     start<T>(
         task: (taskData?: T) => Promise<void>,
-        options: BackgroundTaskStartOptions & {
-            parameters?: T;
-        }
+        options: BackgroundTaskOptions &
+            BackgroundTaskChannelOptions & {
+                parameters?: T;
+            }
     ): Promise<void>;
 
     /**
