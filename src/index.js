@@ -11,7 +11,8 @@ import EventEmitter from 'eventemitter3';
  *            linkingURI?: string,
  *            progressBar?: {max: number, value: number, indeterminate?: boolean}
  *            autoCancel?: boolean,
- *            ongoing: boolean,
+ *            ongoing?: boolean,
+ *            notificationId?: number,
  *            }} BackgroundTaskOptions
  * @typedef {{channelImportance?: 'high' | 'low' | 'min' | 'none' | 'default';
  *            channelShowBadge?: boolean;
@@ -121,6 +122,7 @@ class BackgroundServer extends EventEmitter {
             progressBar: options.progressBar,
             autoCancel: options.autoCancel || false,
             ongoing: options.ongoing || false,
+            notificationId: options.notificationId || 0,
             // channel
             channelImportance: options.channelImportance,
             channelVibrate: options.channelVibrate,

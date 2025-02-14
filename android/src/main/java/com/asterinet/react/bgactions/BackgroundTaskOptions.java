@@ -17,6 +17,9 @@ import com.facebook.react.bridge.ReadableMap;
 
 public final class BackgroundTaskOptions {
     private final Bundle extras;
+    private static final String CHANNEL_ID_DEFAULT = "RN_BACKGROUND_ACTIONS_CHANNEL";
+    public static final int NOTIFICATION_ID_DEFAULT = 92901;
+    private static final String TAG = "RNBackgroundTaskOptions";
 
     public BackgroundTaskOptions(@NonNull final Bundle extras) {
         this.extras = extras;
@@ -75,6 +78,22 @@ public final class BackgroundTaskOptions {
         extras.putBoolean("ongoing", options.hasKey("ongoing") && options.getBoolean("ongoing"));
         // autoCancel
         extras.putBoolean("autoCancel", options.hasKey("autoCancel") && options.getBoolean("autoCancel"));
+        // notification id
+        if (options.hasKey("notificationId")) {
+            final int v = options.getInt("notificationId");
+            extras.putInt("notificationId", v > 0 ? v : NOTIFICATION_ID_DEFAULT);
+        }
+        else {
+            extras.putInt("notificationId", NOTIFICATION_ID_DEFAULT);
+        }
+        // channel id. 주의 생성된 채널은 앱을 삭제하기 전까지 지속됩니다.
+        if (options.hasKey("channelId")) {
+            final String cid = options.getString("channelId");
+            extras.putString("channelId", cid != null && !cid.isEmpty() ? cid : CHANNEL_ID_DEFAULT);
+        }
+        else {
+            extras.putString("channelId", CHANNEL_ID_DEFAULT);
+        }
         // channel importance
         int importance = NotificationManager.IMPORTANCE_DEFAULT;
         if (options.hasKey("channelImportance")) {
@@ -95,28 +114,8 @@ public final class BackgroundTaskOptions {
         // channel showBadge
         extras.putBoolean("channelShowBadge", options.hasKey("channelShowBadge") && options.getBoolean("channelShowBadge"));
         // channel vibrate
-        try {
-            if (options.hasKey("channelVibrate")) {
-                String vib = options.getString("channelVibrate");
-                if (vib != null) {
-                    String[] items = vib.split(",");
-                    if (items.length > 0) {
-                        long[] vibrates = new long[items.length];
-                        for (int i = 0; i < items.length; i++) {
-                            try {
-                                vibrates[i] = Integer.parseInt(items[i]);
-                                Log.d("RNBackgroundActions", String.format("option.vibrate=%d", Integer.parseInt(items[i])));
-                            } catch (NumberFormatException nfe) {
-                                break;
-                            }
-                        }
-                        extras.putLongArray("channelVibrate", vibrates);
-                    }
-                }
-            }
-        }
-        catch (Exception e) {
-            throw new IllegalArgumentException("Task channelVibrate invalid");
+        if (options.hasKey("channelVibrate")) {
+            extras.putString("channelVibrate", options.getString("channelVibrate"));
         }
     }
 
@@ -157,6 +156,9 @@ public final class BackgroundTaskOptions {
     public boolean getAutoCancel() {
         return extras.getBoolean("autoCancel");
     }
+    public int getNotificationId() {
+        return extras.getInt("notificationId");
+    }
     // importance, showBadge, vibrate for channel !
     public int getChannelImportance() {
         return extras.getInt("channelImportance");
@@ -167,9 +169,13 @@ public final class BackgroundTaskOptions {
     public boolean getChannelShowBadge() {
         return extras.getBoolean("channelShowBadge");
     }
-    @Nullable
     // new long[] {100L, 1000L, 200L, 1000L, 200L, 1000L}; [idle, vibrate, ...]
-    public long[] getChannelVibrate() {
-        return extras.getLongArray("channelVibrate");
+    @Nullable
+    public String getChannelVibrate() {
+        return extras.getString("channelVibrate");
     }
+    public String getChannelId() {
+        return extras.getString("channelId");
+    }
+
 }

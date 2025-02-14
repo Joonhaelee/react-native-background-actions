@@ -20,7 +20,7 @@ public class BackgroundActionsModule extends ReactContextBaseJavaModule {
 
     private static final String TAG = "RNBackgroundActions";
 
-    private final ReactContext reactContext;
+    private final ReactApplicationContext reactContext;
 
     private Intent currentServiceIntent;
 
@@ -39,8 +39,11 @@ public class BackgroundActionsModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void start(@NonNull final ReadableMap options, @NonNull final Promise promise) {
         try {
+            Log.d(TAG, "starting background task...");
             // Stop any other intent
-            if (currentServiceIntent != null) reactContext.stopService(currentServiceIntent);
+            if (currentServiceIntent != null) {
+                reactContext.stopService(currentServiceIntent);
+            }
             // Create the service
             currentServiceIntent = new Intent(reactContext, RNBackgroundActionsTask.class);
             // Get the task info from the options
@@ -48,10 +51,10 @@ public class BackgroundActionsModule extends ReactContextBaseJavaModule {
             currentServiceIntent.putExtras(bgOptions.getExtras());
             // Start the task
             reactContext.startService(currentServiceIntent);
-            Log.d(TAG, "service started");
+            Log.d(TAG, "background task started");
             promise.resolve(null);
         } catch (Exception e) {
-            Log.e(TAG, "Fail to start service", e);
+            Log.e(TAG, "Fail to start background task", e);
             promise.reject(e);
         }
     }
@@ -61,6 +64,7 @@ public class BackgroundActionsModule extends ReactContextBaseJavaModule {
     public void stop(@NonNull final Promise promise) {
         if (currentServiceIntent != null)
             reactContext.stopService(currentServiceIntent);
+        Log.d(TAG, "background task stopped");
         promise.resolve(null);
     }
 
@@ -72,7 +76,8 @@ public class BackgroundActionsModule extends ReactContextBaseJavaModule {
             final BackgroundTaskOptions bgOptions = new BackgroundTaskOptions(reactContext, options);
             final Notification notification = RNBackgroundActionsTask.buildNotification(reactContext, bgOptions);
             final NotificationManager notificationManager = (NotificationManager) reactContext.getSystemService(Context.NOTIFICATION_SERVICE);
-            notificationManager.notify(RNBackgroundActionsTask.SERVICE_NOTIFICATION_ID, notification);
+            notificationManager.notify(bgOptions.getNotificationId(), notification);
+            Log.d(TAG, "foreground service notification updated.");
         } catch (Exception e) {
             promise.reject(e);
             return;

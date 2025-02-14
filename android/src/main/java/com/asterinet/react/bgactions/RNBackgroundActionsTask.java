@@ -26,10 +26,28 @@ import android.util.Log;
 
 final public class RNBackgroundActionsTask extends HeadlessJsTaskService {
 
-    private static final String TAG = "RNBackgroundActions";
+    private static final String TAG = "RNBackgroundActionsTask";
 
-    public static final int SERVICE_NOTIFICATION_ID = 92901;
-    private static final String CHANNEL_ID = "RN_BACKGROUND_ACTIONS_CHANNEL";
+    @Nullable
+    private static long[] stringToLongArray(@Nullable String v) {
+        if (v != null && !v.isEmpty()) {
+            Log.d(TAG, "channelVibrate: " + v);
+            String[] items = v.split(",");
+            if (items.length > 0) {
+                long[] vibrates = new long[items.length];
+                for (int i = 0; i < items.length; i++) {
+                    try {
+                        vibrates[i] = Long.parseLong(items[i]);
+                    } catch (NumberFormatException nfe) {
+                        Log.e(TAG, "invalid vibrate value");
+                        return null;
+                    }
+                }
+                return vibrates;
+            }
+        }
+        return null;
+    }
 
     private static Class<?> getMainActivityClass(Context context) {
         String packageName = context.getPackageName();
@@ -49,6 +67,7 @@ final public class RNBackgroundActionsTask extends HeadlessJsTaskService {
     @NonNull
     public static Notification buildNotification(@NonNull Context context,
                                                  @NonNull final BackgroundTaskOptions bgOptions) {
+        Log.d(TAG, "buildNotification...");
         // Get info
         final String linkingURI = bgOptions.getLinkingURI();
         Intent notificationIntent;
@@ -60,9 +79,6 @@ final public class RNBackgroundActionsTask extends HeadlessJsTaskService {
                 throw new IllegalArgumentException("RN main activity class not found");
             }
             notificationIntent = new Intent(context, mainActivityClass);
-            // as RN works on single activity architecture - we don't need to find current activity on behalf of react context
-//            notificationIntent =
-//                    new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
         }
         final PendingIntent contentIntent;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -71,30 +87,25 @@ final public class RNBackgroundActionsTask extends HeadlessJsTaskService {
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             contentIntent = PendingIntent.getActivity(context, 0, notificationIntent,
                     PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_NO_CREATE);
-//        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-//            contentIntent = PendingIntent.getActivity(context, 0, notificationIntent,
-//                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         } else {
             contentIntent = PendingIntent.getActivity(context, 0, notificationIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT);
         }
+        final String channelId = bgOptions.getChannelId();
         final NotificationCompat.Builder builder =
-                new NotificationCompat.Builder(context, CHANNEL_ID)
+                new NotificationCompat.Builder(context, channelId)
+                        // .setDefaults(NotificationCompat.DEFAULT_ALL)
                         // title & message & icon && color
                         .setContentTitle(bgOptions.getTaskTitle())
                         .setContentText(bgOptions.getTaskDesc())
                         .setSmallIcon(bgOptions.getIconInt())
                         .setColor(bgOptions.getColor())
-                        // priority : android 7.1  이하에서만 적용
-//                        .setPriority(bgOptions.getPriority())
                         // use can not dismiss notification
                         .setOngoing(bgOptions.getOngoing())
                         // Make this notification automatically dismissed when the user touches it.
                         .setAutoCancel(bgOptions.getAutoCancel())
                         // Set the intent that fires when the user taps the notification.
                         .setContentIntent(contentIntent);
-//                        .setDefaults(NotificationCompat.DEFAULT_ALL)
-//                        .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             builder.setCategory(NotificationCompat.CATEGORY_ALARM);
         }
@@ -129,8 +140,8 @@ final public class RNBackgroundActionsTask extends HeadlessJsTaskService {
         createNotificationChannel(bgOptions);
         // Create the notification
         final Notification notification = buildNotification(this, bgOptions);
-
-        startForeground(SERVICE_NOTIFICATION_ID, notification);
+        startForeground(bgOptions.getNotificationId(), notification);
+        Log.d(TAG, "foreground service started");
         return super.onStartCommand(intent, flags, startId);
     }
 
@@ -141,13 +152,13 @@ final public class RNBackgroundActionsTask extends HeadlessJsTaskService {
     private void createNotificationChannel(BackgroundTaskOptions bgOptions) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             final NotificationManager notificationManager = getSystemService(NotificationManager.class);
-            if (notificationManager.getNotificationChannel(CHANNEL_ID) == null) {
+            if (notificationManager.getNotificationChannel(bgOptions.getChannelId()) == null) {
                 // create channel with title and importance
                 final NotificationChannel channel =
-                        new NotificationChannel(CHANNEL_ID, bgOptions.getTaskTitle(), bgOptions.getChannelImportance());
+                        new NotificationChannel(bgOptions.getChannelId(), bgOptions.getTaskTitle(), bgOptions.getChannelImportance());
                 channel.setDescription(bgOptions.getTaskDesc());
                 // vibrate pattern should be set here. can not change after channel created
-                long[] vibrates = bgOptions.getChannelVibrate();
+                long[] vibrates = stringToLongArray(bgOptions.getChannelVibrate());
                 if (vibrates != null) {
                     channel.enableVibration(true);
                     channel.setVibrationPattern(vibrates);
@@ -164,9 +175,7 @@ final public class RNBackgroundActionsTask extends HeadlessJsTaskService {
                 // show badge or not
                 channel.setShowBadge(bgOptions.getChannelShowBadge());;
                 notificationManager.createNotificationChannel(channel);
-            }
-            else {
-                Log.d(TAG, "notification channel already created");
+                Log.d(TAG, String.format("notification channel created. channelId=%s", bgOptions.getChannelId()));
             }
         }
     }

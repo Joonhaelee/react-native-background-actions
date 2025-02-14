@@ -18,6 +18,7 @@ export type BackgroundTaskOptions = {
     };
     autoCancel?: boolean;
     ongoing?: boolean;
+    notificationId?: number;
 };
 
 export type BackgroundTaskChannelOptions = {
@@ -38,6 +39,7 @@ declare const backgroundServer: BackgroundServer;
  *            progressBar?: {max: number, value: number, indeterminate?: boolean}
  *            autoCancel?: boolean,
  *            ongoing?: boolean,
+ *            notificationId?: number,
  *            }} BackgroundTaskOptions
  * @extends EventEmitter<'expiration',any>
  */
