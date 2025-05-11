@@ -105,7 +105,9 @@ final public class RNBackgroundActionsTask extends HeadlessJsTaskService {
                         // Make this notification automatically dismissed when the user touches it.
                         .setAutoCancel(bgOptions.getAutoCancel())
                         // Set the intent that fires when the user taps the notification.
-                        .setContentIntent(contentIntent);
+                        .setContentIntent(contentIntent)
+                        // fire notification immediately
+                        .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             builder.setCategory(NotificationCompat.CATEGORY_ALARM);
         }
