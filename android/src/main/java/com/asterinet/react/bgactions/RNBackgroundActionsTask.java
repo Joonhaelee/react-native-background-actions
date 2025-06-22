@@ -94,7 +94,7 @@ final public class RNBackgroundActionsTask extends HeadlessJsTaskService {
         final String channelId = bgOptions.getChannelId();
         final NotificationCompat.Builder builder =
                 new NotificationCompat.Builder(context, channelId)
-                        // .setDefaults(NotificationCompat.DEFAULT_ALL)
+                        .setDefaults(NotificationCompat.DEFAULT_ALL)
                         // title & message & icon && color
                         .setContentTitle(bgOptions.getTaskTitle())
                         .setContentText(bgOptions.getTaskDesc())
@@ -107,10 +107,8 @@ final public class RNBackgroundActionsTask extends HeadlessJsTaskService {
                         // Set the intent that fires when the user taps the notification.
                         .setContentIntent(contentIntent)
                         // fire notification immediately
-                        .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            builder.setCategory(NotificationCompat.CATEGORY_ALARM);
-        }
+                        .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+                        .setCategory(NotificationCompat.CATEGORY_ALARM);
 
         final Bundle progressBarBundle = bgOptions.getProgressBar();
         if (progressBarBundle != null) {
@@ -152,33 +150,32 @@ final public class RNBackgroundActionsTask extends HeadlessJsTaskService {
        importance, vibrate, sound, showBadge 는 채널에서 설정해야 합니다.
     */
     private void createNotificationChannel(BackgroundTaskOptions bgOptions) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            final NotificationManager notificationManager = getSystemService(NotificationManager.class);
-            if (notificationManager.getNotificationChannel(bgOptions.getChannelId()) == null) {
-                // create channel with title and importance
-                final NotificationChannel channel =
-                        new NotificationChannel(bgOptions.getChannelId(), bgOptions.getTaskTitle(), bgOptions.getChannelImportance());
-                channel.setDescription(bgOptions.getTaskDesc());
-                // vibrate pattern should be set here. can not change after channel created
-                long[] vibrates = stringToLongArray(bgOptions.getChannelVibrate());
-                if (vibrates != null) {
-                    channel.enableVibration(true);
-                    channel.setVibrationPattern(vibrates);
-                }
-                // sound
-                if (bgOptions.getChannelSound()) {
-                    Uri soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
-                    AudioAttributes audioAttributes = new AudioAttributes.Builder()
-                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
-                            .build();
-                    channel.setSound(soundUri, audioAttributes);
-                }
-                // show badge or not
-                channel.setShowBadge(bgOptions.getChannelShowBadge());;
-                notificationManager.createNotificationChannel(channel);
-                Log.d(TAG, String.format("notification channel created. channelId=%s", bgOptions.getChannelId()));
+        final NotificationManager notificationManager = getSystemService(NotificationManager.class);
+        if (notificationManager.getNotificationChannel(bgOptions.getChannelId()) == null) {
+            // create channel with title and importance
+            final NotificationChannel channel =
+                    new NotificationChannel(bgOptions.getChannelId(), bgOptions.getTaskTitle(), bgOptions.getChannelImportance());
+            channel.setDescription(bgOptions.getTaskDesc());
+            // vibrate pattern should be set here. can not change after channel created
+            long[] vibrates = stringToLongArray(bgOptions.getChannelVibrate());
+            if (vibrates != null) {
+                channel.enableVibration(true);
+                channel.setVibrationPattern(vibrates);
             }
+            // sound
+            if (bgOptions.getChannelSound()) {
+                Uri soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+                AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                        .build();
+                channel.setSound(soundUri, audioAttributes);
+            }
+            // show badge or not
+            channel.setShowBadge(bgOptions.getChannelShowBadge());;
+            notificationManager.createNotificationChannel(channel);
+            Log.d(TAG, String.format("notification channel created. channelId=%s", bgOptions.getChannelId()));
         }
+
     }
 }
